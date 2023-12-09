@@ -1,21 +1,22 @@
 from fastapi import APIRouter
-from sklearn.model_selection import train_test_split
+from typing import List
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 import random
 
 ia = APIRouter()
 
-@ia.get('/ia')
-def fit_model():
+@ia.post('/ia')
+def fit_model(valores_nuevo_pozo: List[float]):
     df_pozos_from_csv = pd.read_csv('C:/Users/Pablo/Documents/IPF/Trabajo final integración/modelo_pozo_hidrocarburos/data/pozos_petroleo_10000.csv')
 
     # Preparar los datos para el modelo
     X = df_pozos_from_csv[['Profundidad', 'Presion', 'Temperatura']]  # Variables independientes
     y = df_pozos_from_csv['Produccion_Petroleo']  # Variable dependiente
     
-    # Dividir los datos en conjunto de entrenamiento y prueba
+    # Dividir los datos en conjunto de entrenamiento y prueba (puedes ajustarlo según tu flujo)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Escalar características
@@ -28,15 +29,9 @@ def fit_model():
     model.fit(X_train_scaled, y_train)
 
     # Predicción de la producción de petróleo con los datos de un nuevo pozo
-    valores_nuevo_pozo = {
-        'Profundidad': [3791],
-        'Presion': [5298.44],
-        'Temperatura': [168.39]
-    }
-    
-    datos_nuevo_pozo = pd.DataFrame(valores_nuevo_pozo)
+    datos_nuevo_pozo = pd.DataFrame([valores_nuevo_pozo], columns=['Profundidad', 'Presion', 'Temperatura'])
     datos_nuevo_pozo_scaled = scaler.transform(datos_nuevo_pozo)
-    produccion_predicha = model.predict(datos_nuevo_pozo_scaled)
+    produccion_predicha = model.predict(datos_nuevo_pozo_scaled)[0]  # Obtener el valor de predicción
     
     # Graficar la predicción del nuevo pozo
     fechas = pd.date_range(start='2023-12-01', periods=365 * 3, freq='D')
@@ -44,7 +39,7 @@ def fit_model():
     for i, fecha in enumerate(fechas[:-1]):
         fluctuacion = random.uniform(-0.05, 0.05)
         nueva_produccion = max(0, produccion_acumulada[i] + produccion_predicha * (1 + fluctuacion))
-        produccion_acumulada.append(nueva_produccion[0])
+        produccion_acumulada.append(nueva_produccion)
         
     result = {
         "fechas": fechas.strftime("%Y-%m-%d").tolist(),
